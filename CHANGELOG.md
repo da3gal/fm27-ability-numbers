@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- One-line installers for Linux and Steam Deck (`install.py`) and Windows (`install.ps1`). They find FM27, install BepInEx 6.0.0-be.793 with a checksum check, download the latest plugin and, on Linux, set the Proton winhttp override so no launch option is needed. `--uninstall` removes everything again.
+
 ## 1.0.0 - 2026-11-09
 
 First release, tested on FM27 Steam build 26340721 (Unity 6000.3.18f1) with BepInEx 6.0.0-be.793, under Proton on Linux.
