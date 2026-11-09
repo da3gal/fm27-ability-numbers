@@ -8,3 +8,7 @@ obj/
 vendor/
 tools/venv/
 *.log
+
+# Python bytecode from running the installer tests
+__pycache__/
+*.pyc
