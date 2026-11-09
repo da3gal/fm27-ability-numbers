@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Offline copy of BepInEx be.793's interop generation (Il2CppInteropManager), so the plugin can be compiled while the game runs. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <RollForward>Major</RollForward>
+    <BepCore>$(MSBuildThisFileDirectory)../../vendor/bepinex/BepInEx/core</BepCore>
+    <BepDotnet>$(MSBuildThisFileDirectory)../../vendor/bepinex/dotnet</BepDotnet>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(BepCore)/*.dll" Exclude="$(BepCore)/BepInEx*.dll;$(BepCore)/0Harmony.dll;$(BepCore)/dobby.dll;$(BepCore)/MonoMod.RuntimeDetour.dll;$(BepCore)/Il2CppInterop.Runtime.dll;$(BepCore)/Il2CppInterop.HarmonySupport.dll" />
+    <Reference Include="$(BepDotnet)/Microsoft.Extensions.Logging.Abstractions.dll" />
+    <Reference Include="$(BepDotnet)/Microsoft.Extensions.Logging.dll" />
+    <Reference Include="$(BepDotnet)/Microsoft.Extensions.DependencyInjection.Abstractions.dll" />
+    <Reference Include="$(BepDotnet)/Microsoft.Extensions.DependencyInjection.dll" />
+    <Reference Include="$(BepDotnet)/Microsoft.Extensions.Options.dll" />
+    <Reference Include="$(BepDotnet)/Microsoft.Extensions.Primitives.dll" />
+  </ItemGroup>
+</Project>

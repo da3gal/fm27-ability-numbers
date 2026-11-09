@@ -1,0 +1,10 @@
+# Build output
+bin/
+obj/
+*.user
+
+# Local-only material. Never commit any of it: it is FM27's own code and data (decompiled
+# signatures, generated interop assemblies, extracted UI assets) or third-party binaries.
+vendor/
+tools/venv/
+*.log

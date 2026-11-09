@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>FM27AbilityNumbers</AssemblyName>
+    <RootNamespace>FM27AbilityNumbers</RootNamespace>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <DebugType>none</DebugType>
+    <!-- Compile-time references: BepInEx core + the interop assemblies BepInEx generates for FM27.
+         Easiest: point GameDir at an FM27 folder where BepInEx has run once:
+           dotnet build -c Release -p:GameDir="/path/to/Football Manager 27"
+         Or set BepCore/Interop directly (e.g. to the output of tools/interopgen). -->
+    <BepCore Condition="'$(BepCore)' == '' And '$(GameDir)' != ''">$(GameDir)/BepInEx/core</BepCore>
+    <Interop Condition="'$(Interop)' == '' And '$(GameDir)' != ''">$(GameDir)/BepInEx/interop</Interop>
+    <BepCore Condition="'$(BepCore)' == ''">$(MSBuildThisFileDirectory)../vendor/bepinex/BepInEx/core</BepCore>
+    <Interop Condition="'$(Interop)' == ''">$(MSBuildThisFileDirectory)../vendor/interop</Interop>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(BepCore)/BepInEx.Core.dll" Private="false" />
+    <Reference Include="$(BepCore)/BepInEx.Unity.IL2CPP.dll" Private="false" />
+    <Reference Include="$(BepCore)/Il2CppInterop.Runtime.dll" Private="false" />
+    <Reference Include="$(BepCore)/Il2CppInterop.Common.dll" Private="false" />
+    <Reference Include="$(BepCore)/0Harmony.dll" Private="false" />
+    <Reference Include="$(Interop)/*.dll" Exclude="$(Interop)/netstandard.dll" Private="false" />
+  </ItemGroup>
+</Project>

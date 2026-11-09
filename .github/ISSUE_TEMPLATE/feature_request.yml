@@ -1,0 +1,11 @@
+name: Feature request
+description: A screen that should show the numbers, or an idea to make the plugin better.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      description: The screen or situation, and what you would like to see there. Screenshots welcome.
+    validations:
+      required: true

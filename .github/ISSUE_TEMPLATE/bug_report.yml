@@ -1,0 +1,43 @@
+name: Bug report
+description: Numbers missing or wrong, an error in the log, or anything else broken.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting! The log answers most questions, so please attach it.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Which screen, what you expected, what you saw. A screenshot helps a lot.
+    validations:
+      required: true
+  - type: input
+    id: fm
+    attributes:
+      label: FM27 version / build
+      placeholder: "e.g. 27.0.1 (Steam build 26340721)"
+    validations:
+      required: true
+  - type: input
+    id: bepinex
+    attributes:
+      label: BepInEx build
+      placeholder: "e.g. 6.0.0-be.793 (first line of BepInEx/LogOutput.log)"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [Windows, Linux (Proton), Steam Deck, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: BepInEx/LogOutput.log
+      description: Drag the file here, or paste the lines from "FM27 Ability Numbers".
+      render: text
+    validations:
+      required: true
