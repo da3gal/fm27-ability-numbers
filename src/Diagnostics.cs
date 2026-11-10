@@ -66,7 +66,10 @@ namespace FM27AbilityNumbers
                                      $"placement={Plugin.S.Placement.Value} classes='{Plugin.S.LabelClasses.Value}' sort={Plugin.S.ExactSort.Value}");
                     break;
                 case "mem": // index status, or one player's native object: mem <record id>
-                    Plugin.L.LogInfo(int.TryParse(arg, out var mid) ? Memory.Describe(mid) : $"memory: {Memory.Status}, {Memory.Count} players, {Channels.Count} channels answered");
+                    Plugin.L.LogInfo(int.TryParse(arg, out var mid) ? Memory.Describe(mid) : $"memory: {Memory.Status}, {Memory.Count} players, {Channels.Count} sort channels, {Channels.Waiting} without a value yet");
+                    break;
+                case "find": // why a player is missing from the index: find <record id>
+                    if (int.TryParse(arg, out var fid)) Memory.Find(fid); else Plugin.L.LogWarning("find needs a record id");
                     break;
                 case "enable":
                     Labels.Enable();

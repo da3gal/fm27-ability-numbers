@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 
 namespace FM27AbilityNumbers
@@ -204,6 +205,72 @@ namespace FM27AbilityNumbers
             bool ok = Read(p - 0x40, bytes);
             return $"id {id}: P=0x{p:X} read={ReadPlayer(p, id, out var ca, out var pa)} ca={ca} pa={pa} " +
                    $"P-0x40..P: {(ok ? BitConverter.ToString(bytes) : "unreadable")}";
+        }
+
+        // Debug `find <id>`: objects whose qword at +8 holds this record id (low 24 bits) and whose first qword points
+        // into game_plugin.dll, with their MSVC class and memory region, to see why the index misses a player.
+        internal static void Find(int id) =>
+            new Thread(() =>
+            {
+                try { Plugin.L.LogInfo(FindReport(id)); }
+                catch (Exception e) { Plugin.L.LogError($"[find] {e}"); }
+            }) { IsBackground = true, Name = "FM27 Ability Numbers find" }.Start();
+
+        static string FindReport(int id)
+        {
+            long mod = (long)GetModuleHandleW("game_plugin.dll");
+            if (mod == 0 || !ReadI32(mod + 0x3C, out var peAt) || !ReadI32(mod + peAt + 24 + 56, out var imageSize))
+                return "find: game_plugin.dll not readable";
+            var sb = new StringBuilder($"find {id}: {(s_index?.ContainsKey(id) == true ? "in" : "not in")} index, " +
+                                       $"vtables person 0x{s_personVt - mod:X} player 0x{s_playerVt - mod:X} attr 0x{s_attrVt - mod:X}\n");
+            var needle = new byte[] { (byte)id, (byte)(id >> 8), (byte)(id >> 16) };
+            var buf = (byte*)NativeMemory.Alloc(ChunkSize);
+            int hits = 0;
+            try
+            {
+                long addr = 0x10000;
+                while (hits < 40 && VirtualQuery((IntPtr)addr, out var m, (IntPtr)sizeof(MBI)) != IntPtr.Zero)
+                {
+                    long start = (long)m.BaseAddress, size = (long)m.RegionSize;
+                    if (size <= 0) break;
+                    addr = start + size;
+                    // committed, not NOACCESS/GUARD, not our own buffer
+                    if (m.State != 0x1000 || (m.Protect & 0x101) != 0 || (start < (long)buf + ChunkSize && start + size > (long)buf)) continue;
+                    for (long off = 0; off < size && hits < 40; off += ChunkSize)
+                    {
+                        var data = new Span<byte>(buf, (int)Math.Min(ChunkSize, size - off));
+                        if (!Read(start + off, data)) continue;
+                        for (int from = 8; hits < 40;)
+                        {
+                            int i = data.Slice(from).IndexOf(needle);
+                            if (i < 0) break;
+                            int at = from + i;
+                            from = at + 1;
+                            long vt = BitConverter.ToInt64(data.Slice(at - 8));
+                            if ((at & 7) != 0 || vt < mod || vt >= mod + imageSize) continue;
+                            long p = start + off + at - 8;
+                            hits++;
+                            sb.Append($"  P=0x{p:X} region type 0x{m.Type:X} protect 0x{m.Protect:X} id word 0x{BitConverter.ToInt32(data.Slice(at)):X8} " +
+                                      $"P {ClassName(vt, mod)} | P-0x288 {ClassAt(p + PlayerPart, mod, imageSize)} | P-0x140 {ClassAt(p + AttrPart, mod, imageSize)}\n");
+                        }
+                    }
+                }
+            }
+            finally { NativeMemory.Free(buf); }
+            return sb.Append($"  {hits} hits").ToString();
+        }
+
+        static string ClassAt(long addr, long mod, int imageSize) =>
+            ReadI64(addr, out var vt) && vt >= mod && vt < mod + imageSize ? ClassName(vt, mod) : "-";
+
+        // vtable[-1] -> complete object locator; +12 = type descriptor RVA; its name starts 16 bytes in.
+        static string ClassName(long vt, long mod)
+        {
+            if (!ReadI64(vt - 8, out var col) || !ReadI32(col + 12, out var td)) return $"0x{vt - mod:X}";
+            var name = new byte[96];
+            if (!Read(mod + td + 16, name)) return $"0x{vt - mod:X}";
+            int end = Array.IndexOf(name, (byte)0);
+            return $"0x{vt - mod:X} {Encoding.ASCII.GetString(name, 0, end < 0 ? name.Length : end)}";
         }
 
         static bool Read(long addr, Span<byte> dst)

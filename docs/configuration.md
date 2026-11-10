@@ -21,6 +21,7 @@ With `Debug.Enabled = true`, write commands, one per line, into `BepInEx/config/
 
 - `dump` lists the tracked labels and the patched sort columns.
 - `mem [id]` shows the player index status, or one player's native object.
+- `find <id>` searches memory for a player the index is missing and logs which native class holds that player.
 - `props [filter]` lists the binding properties FM exposes on a person.
 - `probe <Property>` reads a property for every player on screen.
 - `shot` saves a screenshot to `BepInEx/shots/`.
