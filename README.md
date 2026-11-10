@@ -59,7 +59,7 @@ The installer finds FM27 in your Steam libraries and installs [BepInEx 6.0.0-be.
 - To uninstall, run the installer again with `--uninstall` (Linux, `curl -fsSL <url> | python3 - --uninstall`) or `-Uninstall` (Windows, `& ([scriptblock]::Create((irm <url>))) -Uninstall`). It removes the plugin, and BepInEx too when no other plugin uses it.
 </details>
 
-Tested on FM27 Steam build 26340721 with BepInEx 6.0.0-be.793 under Proton on Linux. Windows is expected to work but is untested so far.
+Tested on FM27 Steam builds 26340721 and 26385295 with BepInEx 6.0.0-be.793 under Proton on Linux. Windows is expected to work but is untested so far.
 
 ## Use
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2 - 2026-11-11
+
+- Tested on FM27 Steam build 26385295. The update changed nothing the plugin relies on, so 1.0.1 keeps working there too.
+- Numbers no longer go missing for up to five minutes when the player index was built while FM was loading a save. An index that comes out empty, or less than half the size of the one before, is now rebuilt after 20 seconds.
+- Two new debug commands for future FM27 updates. `layout` finds where CA and PA sit in the player object, and `raw <id>` logs one player's object.
+
 ## 1.0.1 - 2026-11-10
 
 - Players FM keeps as `db::ACTUAL_PLAYER_AND_NON_PLAYER`, mostly older ones, now get their numbers too. The index missed them before.
