@@ -27,7 +27,7 @@
 ## After an FM27 update
 
 - BepInEx rebuilds its interop files by itself, so the first start is slower.
-- The plugin finds FM's classes by name, so most updates need nothing. If a build moves CA/PA inside the player object, `Data.*` in the [configuration](configuration.md) can follow it without a rebuild.
+- The plugin finds FM's classes by name, so most updates need nothing. If a build moves CA/PA inside the player object, `Data.*` in the [configuration](configuration.md) can follow it without a rebuild. The `layout` debug command finds the new offsets.
 
 ## Build from source
 

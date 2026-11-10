@@ -21,6 +21,8 @@ With `Debug.Enabled = true`, write commands, one per line, into `BepInEx/config/
 
 - `dump` lists the tracked labels and the patched sort columns.
 - `mem [id]` shows the player index status, or one player's native object.
+- `layout` checks every player in the index and logs the offset pairs where CA and PA look valid. After an FM27 update that moves CA/PA, the top line gives the new `Data.*` offsets.
+- `raw <id>` logs one player's native object as int16 words, with offsets in the same form as `Data.*`.
 - `find <id>` searches memory for a player the index is missing and logs which native class holds that player.
 - `props [filter]` lists the binding properties FM exposes on a person.
 - `probe <Property>` reads a property for every player on screen.

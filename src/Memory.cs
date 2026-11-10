@@ -283,6 +283,77 @@ namespace FM27AbilityNumbers
             return sb.Append($"  {hits} hits").ToString();
         }
 
+        // Debug `layout`: for every indexed player, which int16 pair in the object looks like CA then PA (CA 1..200,
+        // PA >= CA or a negative range code). After a game update moves CA/PA, the top pair gives the new Data.* offsets.
+        internal static void Layout() =>
+            new Thread(() =>
+            {
+                try { Plugin.L.LogInfo(LayoutReport()); }
+                catch (Exception e) { Plugin.L.LogError($"[layout] {e}"); }
+            }) { IsBackground = true, Name = "FM27 Ability Numbers layout" }.Start();
+
+        static string LayoutReport()
+        {
+            var index = s_index;
+            if (index == null) return $"layout: no index yet ({Status})";
+            const int Len = 0x600, Slots = Len / 2 - 1;
+            var buf = new byte[Len];
+            var sb = new StringBuilder($"layout: config offset (from P of an ACTUAL_PLAYER), players where CA/PA look valid, " +
+                                       $"mean CA, distinct CA values. Current config: CA {Plugin.S.CaOffset.Value}, PA {Plugin.S.PaOffset.Value}\n");
+            for (int kind = 0; kind < s_class.Length; kind++)
+            {
+                var valid = new int[Slots];
+                var sum = new long[Slots];
+                var seen = new bool[Slots, 201];
+                int players = 0;
+                foreach (var (id, (p, k)) in index)
+                {
+                    if (k != kind || !Read(p - s_personAt[kind], buf) || !IsPlayer(buf, 0, kind, id)) continue;
+                    players++;
+                    for (int s = 0; s < Slots; s++)
+                    {
+                        int ca = BitConverter.ToInt16(buf, s * 2), pa = BitConverter.ToInt16(buf, s * 2 + 2);
+                        if (ca < 1 || ca > 200 || !(pa >= ca && pa <= 200 || pa < 0 && pa >= -200)) continue;
+                        valid[s]++;
+                        sum[s] += ca;
+                        seen[s, ca] = true;
+                    }
+                }
+                var order = new List<int>();
+                for (int s = 0; s < Slots; s++) if (valid[s] > 0) order.Add(s);
+                order.Sort((a, b) => valid[b].CompareTo(valid[a]));
+                sb.Append($"  {s_class[kind]}: {players} players read\n");
+                int shown = 0;
+                foreach (int s in order)
+                {
+                    int distinct = 0;
+                    for (int v = 1; v <= 200; v++) if (seen[s, v]) distinct++;
+                    if (distinct < 30) continue; // flags and small enums, not an ability
+                    sb.Append($"    CA {s * 2 - CaBase} PA {s * 2 + 2 - CaBase}: {100.0 * valid[s] / Math.Max(1, players):0.0}% " +
+                              $"mean {(double)sum[s] / valid[s]:0.0} distinct {distinct}\n");
+                    if (++shown == 6) break;
+                }
+            }
+            return sb.ToString();
+        }
+
+        // Debug `raw <id>`: the player's object as int16 words, offsets as config values (from P of an ACTUAL_PLAYER).
+        internal static string Raw(int id)
+        {
+            var index = s_index;
+            if (index == null || !index.TryGetValue(id, out var e)) return $"raw {id}: not in index ({Status})";
+            var buf = new byte[s_personAt[e.kind] + 0x80];
+            if (!Read(e.p - s_personAt[e.kind], buf)) return $"raw {id}: unreadable";
+            var sb = new StringBuilder($"raw {id} ({s_class[e.kind]}), int16 words:\n");
+            for (int o = 0; o < buf.Length; o += 32)
+            {
+                sb.Append($"  {o - CaBase,5}:");
+                for (int i = o; i < o + 32 && i < buf.Length; i += 2) sb.Append($" {BitConverter.ToInt16(buf, i),6}");
+                sb.Append('\n');
+            }
+            return sb.ToString();
+        }
+
         static string Rva(long va, long mod) => va == 0 ? "-" : (va - mod).ToString("X");
 
         static string ClassAt(long addr, long mod, int imageSize) =>

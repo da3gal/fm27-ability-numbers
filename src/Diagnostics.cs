@@ -71,6 +71,12 @@ namespace FM27AbilityNumbers
                 case "find": // why a player is missing from the index: find <record id>
                     if (int.TryParse(arg, out var fid)) Memory.Find(fid); else Plugin.L.LogWarning("find needs a record id");
                     break;
+                case "layout": // where CA/PA sit in the player object, for a new FM27 build
+                    Memory.Layout();
+                    break;
+                case "raw": // one player's object as int16 words: raw <record id>
+                    Plugin.L.LogInfo(int.TryParse(arg, out var rid) ? Memory.Raw(rid) : "raw needs a record id");
+                    break;
                 case "enable":
                     Labels.Enable();
                     break;

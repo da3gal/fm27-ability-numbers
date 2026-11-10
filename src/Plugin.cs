@@ -66,7 +66,7 @@ namespace FM27AbilityNumbers
                 "Flow = placed after the stars in FM's own layout (beside them in rows, under them in stacks). Right / Below = overlaid.",
                 new AcceptableValueList<string>("Flow", "Right", "Below")));
             Debug = c.Bind("Debug", "Enabled", false, "Verbose log, plus the command file BepInEx/config/FM27AbilityNumbers.cmd " +
-                                                      "(lines: dump | props [filter] | probe <Property> | mem [id] | find <id> | shot | reload | enable | throw [n]).");
+                                                      "(lines: dump | props [filter] | probe <Property> | mem [id] | find <id> | layout | raw <id> | shot | reload | enable | throw [n]).");
         }
     }
 
