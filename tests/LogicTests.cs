@@ -128,3 +128,27 @@ public class ChannelAnswerTests
     [Fact]
     public void FoundLaterReplacesTheZero() => Assert.Equal(140, Logic.ChannelAnswer(true, 140, true, 0));
 }
+
+public class RebuildDelayTests
+{
+    [Fact]
+    public void NoIndexYetRetriesSoon() => Assert.Equal(20_000, Logic.RebuildDelayMs(false, 0, 0));
+
+    [Fact]
+    public void StaleEntryRetriesSoon() => Assert.Equal(20_000, Logic.RebuildDelayMs(true, 37_675, 37_675));
+
+    // A player missing from a full index is usually a new one or not a player at all: no hurry.
+    [Fact]
+    public void MissFromFullIndexWaits() => Assert.Equal(300_000, Logic.RebuildDelayMs(false, 37_675, 37_721));
+
+    // Built while FM was loading a save: it must not hide every number for five minutes.
+    [Fact]
+    public void EmptyIndexRetriesSoon() => Assert.Equal(20_000, Logic.RebuildDelayMs(false, 0, 37_683));
+
+    [Fact]
+    public void PartialIndexRetriesSoon() => Assert.Equal(20_000, Logic.RebuildDelayMs(false, 12_000, 37_683));
+
+    // Another, smaller save: the second build agrees with the first, so it is a full index.
+    [Fact]
+    public void SmallerSaveIsAcceptedOnceConfirmed() => Assert.Equal(300_000, Logic.RebuildDelayMs(false, 15_000, 15_000));
+}

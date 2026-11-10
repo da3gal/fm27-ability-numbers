@@ -73,6 +73,13 @@ namespace FM27AbilityNumbers
             return value == last ? null : value;
         }
 
+        // How long after the last index build a missed read may start another one. A full index that misses an id
+        // (a new player, or a person who isn't one) waits 5 min. A stale entry, no index, or an index that came out
+        // empty or under half the build before it (built while FM was loading a save) retries in 20 s. A smaller
+        // save counts as full once the next build confirms it.
+        public static int RebuildDelayMs(bool stale, int indexed, int previousIndexed) =>
+            stale || indexed == 0 || indexed < previousIndexed / 2 ? 20_000 : 300_000;
+
         public static string[] SplitClasses(string classes) =>
             (classes ?? "").Split(new[] { ' ', ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
     }

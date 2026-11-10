@@ -37,6 +37,7 @@ namespace FM27AbilityNumbers
         static long s_attrVt;
         static volatile Dictionary<int, (long p, int kind)> s_index;
         static volatile bool s_busy;
+        static volatile int s_previousIndexed; // players in the build before the current index
         static long s_lastBuild = -1_000_000_000;
         static int s_ready; // bumped when a build finishes; the Driver re-reads everything then
         internal static volatile string Status = "idle (builds on first use)";
@@ -86,8 +87,7 @@ namespace FM27AbilityNumbers
         {
             if (s_busy || s_noClasses) return;
             long now = Environment.TickCount64;
-            long gap = s_index == null || stale ? 20_000 : 300_000;
-            if (now - Interlocked.Read(ref s_lastBuild) < gap) return;
+            if (now - Interlocked.Read(ref s_lastBuild) < Logic.RebuildDelayMs(stale, Count, s_previousIndexed)) return;
             Interlocked.Exchange(ref s_lastBuild, now);
             s_busy = true;
             new Thread(Build) { IsBackground = true, Priority = ThreadPriority.BelowNormal, Name = "FM27 Ability Numbers index" }.Start();
@@ -134,6 +134,7 @@ namespace FM27AbilityNumbers
                         }
                     }
                 }
+                s_previousIndexed = Count;
                 s_index = index;
                 Interlocked.Increment(ref s_ready);
                 Status = $"{index.Count} players indexed ({scanned >> 20} MB scanned in {(Environment.TickCount64 - started) / 1000.0:0.0} s)";
