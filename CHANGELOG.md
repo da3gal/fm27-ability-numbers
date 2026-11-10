@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A CA/PA column now sorts even when some players in it can't be read. FM waits for a value from every row, so those players get 0 and sort last.
 - One-line installers for Linux and Steam Deck (`install.py`) and Windows (`install.ps1`). They find FM27, install BepInEx 6.0.0-be.793 with a checksum check, download the latest plugin and, on Linux, set the Proton winhttp override so no launch option is needed. `--uninstall` removes everything again.
 
 ## 1.0.0 - 2026-11-09

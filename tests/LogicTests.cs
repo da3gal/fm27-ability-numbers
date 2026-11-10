@@ -103,3 +103,28 @@ public class PairTests
     public void Formats(int ca, int pa, bool showCa, bool showPa, string expected) =>
         Assert.Equal(expected, Logic.FormatPair(ca, pa, showCa, showPa));
 }
+
+public class ChannelAnswerTests
+{
+    [Fact]
+    public void SendsTheReadValue() => Assert.Equal(152, Logic.ChannelAnswer(true, 152, true, null));
+
+    [Fact]
+    public void UnchangedValueIsNotResent() => Assert.Null(Logic.ChannelAnswer(true, 152, true, 152));
+
+    [Fact]
+    public void ChangedValueIsSent() => Assert.Equal(153, Logic.ChannelAnswer(true, 153, true, 152));
+
+    // FM sorts a table only once every row has a value, so a player we cannot read still gets one.
+    [Fact]
+    public void UnreadablePlayerGetsZeroOnce() => Assert.Equal(0, Logic.ChannelAnswer(false, 0, true, null));
+
+    [Fact]
+    public void UnreadablePlayerKeepsItsLastValue() => Assert.Null(Logic.ChannelAnswer(false, 0, true, 152));
+
+    [Fact]
+    public void WaitsForTheFirstIndex() => Assert.Null(Logic.ChannelAnswer(false, 0, false, null));
+
+    [Fact]
+    public void FoundLaterReplacesTheZero() => Assert.Equal(140, Logic.ChannelAnswer(true, 140, true, 0));
+}

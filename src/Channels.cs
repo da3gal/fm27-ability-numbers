@@ -33,7 +33,7 @@ namespace FM27AbilityNumbers
             public Bindings.Key Key;
             public int Person;
             public AbilityKind Kind;
-            public int Last;
+            public int? Last; // null = not answered yet
         }
 
         static readonly Dictionary<ulong, Channel> s_open = new();
@@ -43,6 +43,7 @@ namespace FM27AbilityNumbers
         static int s_seenReady, s_debugLines;
 
         internal static int Count => s_open.Count;
+        internal static int Waiting { get { int n = 0; foreach (var c in s_open.Values) if (c.Last == null) n++; return n; } }
 
         // Hook side: record only; values are set later from the Driver, outside FM's channel processing.
         internal static bool Open(InteropDataHandler handler, TypedValue source, Bindings.Property property, Bindings.Key key)
@@ -67,7 +68,7 @@ namespace FM27AbilityNumbers
             {
                 if (!s_open.TryGetValue(key.m_key, out var ch)) return true;
                 if (Labels.TryPersonId(value, out var person)) ch.Person = person; // list row reused for another player
-                ch.Last = 0;
+                ch.Last = null;
                 s_dirty.Add(key.m_key);
                 return false;
             }
@@ -107,12 +108,12 @@ namespace FM27AbilityNumbers
             foreach (var ch in s_open.Values)
             {
                 if (!all && !s_dirty.Contains(ch.Key.m_key)) continue;
-                if (!Memory.TryRead(ch.Person, out var ca, out var pa)) continue;
-                int v = ch.Kind == AbilityKind.Current ? ca : pa;
-                if (v == ch.Last) continue;
+                bool read = Memory.TryRead(ch.Person, out var ca, out var pa);
+                var v = Logic.ChannelAnswer(read, ch.Kind == AbilityKind.Current ? ca : pa, Memory.Ready > 0, ch.Last);
+                if (v == null) continue;
                 ch.Last = v;
                 var key = ch.Key;
-                tree.Set(ref key, TypedValue.Create(v));
+                tree.Set(ref key, TypedValue.Create(v.Value));
             }
             s_dirty.Clear();
         }

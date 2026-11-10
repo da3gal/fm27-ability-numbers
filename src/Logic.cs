@@ -61,6 +61,18 @@ namespace FM27AbilityNumbers
             return true;
         }
 
+        // The value to answer an exact-sort channel with, or null to send nothing. FM sorts a table only once every
+        // row has answered, so a player we cannot read gets 0 once the index exists; one we read before keeps that.
+        public static int? ChannelAnswer(bool read, int value, bool indexBuilt, int? last)
+        {
+            if (!read)
+            {
+                if (last != null || !indexBuilt) return null;
+                value = 0;
+            }
+            return value == last ? null : value;
+        }
+
         public static string[] SplitClasses(string classes) =>
             (classes ?? "").Split(new[] { ' ', ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
     }
