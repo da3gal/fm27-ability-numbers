@@ -7,6 +7,7 @@
   - The classes are found by their MSVC RTTI names (`db::ACTUAL_PLAYER`, `db::PLAYING_DATA`).
   - A background thread indexes record id → object in about half a second.
   - CA is the int16 at `P-0x24`, PA at `P-0x22`.
+  - Some players, mostly older ones, are a `db::ACTUAL_PLAYER_AND_NON_PLAYER`, which adds a staff part. Its person part sits further in (`+0x380` instead of `+0x288`), so CA and PA are at `P-0x11C` and `P-0x11A` there.
 - Every read goes through `ReadProcessMemory` on its own process and first checks three vtables and the record id, so freed or moved memory can't crash the game.
 
 ## Where they are shown

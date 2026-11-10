@@ -10,15 +10,21 @@ namespace FM27AbilityNumbers
     // the Live Editor read. FM's binding properties for it (PlayerCurrentAbility...) only answer with the
     // In-Game Editor, so they come back null.
     //
-    // Layout (from the public SiRRAHx/fm27-live-editor research): a player is three objects at fixed distances
-    // from the person object P, each starting with an MSVC vtable of game_plugin.dll:
-    //   P - 0x288 db::ACTUAL_PLAYER, P - 0x140 db::PLAYING_DATA, P db::ACTUAL_PLAYER's person part (+0x288);
+    // Layout (from the public SiRRAHx/fm27-live-editor research, checked against the RTTI): a player object B starts
+    // with an MSVC vtable of game_plugin.dll and holds two more at fixed offsets:
+    //   B db::ACTUAL_PLAYER, B + 0x148 its db::PLAYING_DATA member, B + 0x288 its virtual base db::PERSON (P);
     //   P + 8 = record id (the "dref" id FM's UI references carry); P - 0x24 CA, P - 0x22 PA (int16).
+    // Some players, mostly older ones, are a db::ACTUAL_PLAYER_AND_NON_PLAYER instead, which adds a staff part: the same
+    // ACTUAL_PLAYER part at B, so CA/PA stay at B + 0x264/0x266, but its own vtables and P at B + 0x380.
     // Every read goes through ReadProcessMemory on our own process, so memory freed by the game in the meantime
     // makes a read fail instead of crashing, and every value is only used after all three vtables and the id match.
     internal static unsafe class Memory
     {
-        const int PlayerPart = -0x288, AttrPart = -0x140, IdAt = 8;
+        // Per kind of player object: class, where P sits in it, and its vtables at B and at P.
+        static readonly string[] s_class = { "ACTUAL_PLAYER", "ACTUAL_PLAYER_AND_NON_PLAYER" };
+        static readonly int[] s_personAt = { 0x288, 0x380 };
+        static readonly long[] s_playerVt = new long[2], s_personVt = new long[2];
+        const int AttrAt = 0x148, IdAt = 8, CaBase = 0x288; // the config's CA/PA offsets are from P of an ACTUAL_PLAYER
         const int ChunkSize = 4 << 20;
 
         static readonly IntPtr s_proc = GetCurrentProcess();
@@ -28,8 +34,8 @@ namespace FM27AbilityNumbers
         static long MemStart => (long)s_mem;
         static long MemEnd => (long)s_mem + ChunkSize + 2 * BlockLength;
         static bool s_noClasses;
-        static long s_personVt, s_playerVt, s_attrVt;
-        static volatile Dictionary<int, long> s_index;
+        static long s_attrVt;
+        static volatile Dictionary<int, (long p, int kind)> s_index;
         static volatile bool s_busy;
         static long s_lastBuild = -1_000_000_000;
         static int s_ready; // bumped when a build finishes; the Driver re-reads everything then
@@ -42,9 +48,9 @@ namespace FM27AbilityNumbers
         {
             ca = pa = 0;
             var index = s_index;
-            if (index != null && index.TryGetValue(id, out var p))
+            if (index != null && index.TryGetValue(id, out var e))
             {
-                if (ReadPlayer(p, id, out ca, out pa)) return true;
+                if (ReadPlayer(e.p, e.kind, id, out ca, out pa)) return true;
                 RequestBuild(stale: true); // another save was loaded, or the game moved the player
                 return false;
             }
@@ -52,28 +58,28 @@ namespace FM27AbilityNumbers
             return false;
         }
 
-        // One read of P-0x288 .. P+0x10 checks all three vtables and the id, and holds CA and PA.
-        const int BlockStart = PlayerPart, BlockLength = -PlayerPart + 0x10;
+        // One read of B .. P+0x10 checks all three vtables and the id, and holds CA and PA.
+        const int BlockLength = 0x380 + 0x10; // the longest kind
 
-        static bool ReadPlayer(long p, int id, out int ca, out int pa)
+        static bool ReadPlayer(long p, int kind, int id, out int ca, out int pa)
         {
             ca = pa = 0;
             var s = Plugin.S;
-            int caAt = -BlockStart + s.CaOffset.Value, paAt = -BlockStart + s.PaOffset.Value;
-            if (caAt < 0 || caAt + 2 > BlockLength || paAt < 0 || paAt + 2 > BlockLength) return false;
-            var b = new Span<byte>(s_mem + ChunkSize + BlockLength, BlockLength); // main thread only
-            if (!Read(p + BlockStart, b) || !IsPlayer(b, 0, id)) return false;
+            int len = s_personAt[kind] + 0x10, caAt = CaBase + s.CaOffset.Value, paAt = CaBase + s.PaOffset.Value;
+            if (caAt < 0 || caAt + 2 > len || paAt < 0 || paAt + 2 > len) return false;
+            var b = new Span<byte>(s_mem + ChunkSize + BlockLength, len); // main thread only
+            if (!Read(p - s_personAt[kind], b) || !IsPlayer(b, 0, kind, id)) return false;
             ca = BitConverter.ToInt16(b.Slice(caAt));
             pa = BitConverter.ToInt16(b.Slice(paAt));
             return ca is >= 1 and <= 200 && pa is >= -200 and <= 200 && pa != 0;
         }
 
-        // `at` = offset of P-0x288 in `b`. id < 0 = any id.
-        static bool IsPlayer(ReadOnlySpan<byte> b, int at, int id) =>
-            BitConverter.ToInt64(b.Slice(at)) == s_playerVt &&
-            BitConverter.ToInt64(b.Slice(at - PlayerPart + AttrPart)) == s_attrVt &&
-            BitConverter.ToInt64(b.Slice(at - PlayerPart)) == s_personVt &&
-            (id < 0 || BitConverter.ToInt32(b.Slice(at - PlayerPart + IdAt)) == id);
+        // `at` = offset of B in `b`. id < 0 = any id.
+        static bool IsPlayer(ReadOnlySpan<byte> b, int at, int kind, int id) =>
+            BitConverter.ToInt64(b.Slice(at)) == s_playerVt[kind] &&
+            BitConverter.ToInt64(b.Slice(at + AttrAt)) == s_attrVt &&
+            BitConverter.ToInt64(b.Slice(at + s_personAt[kind])) == s_personVt[kind] &&
+            (id < 0 || BitConverter.ToInt32(b.Slice(at + s_personAt[kind] + IdAt)) == id);
 
         // Builds run on a background thread; at most every 20 s after a failed check, every 5 min for unknown ids.
         static void RequestBuild(bool stale)
@@ -92,9 +98,9 @@ namespace FM27AbilityNumbers
             var started = Environment.TickCount64;
             try
             {
-                if (s_personVt == 0 && !FindClasses()) { s_noClasses = true; return; } // no retry: same module, same result
+                if (s_personVt[0] == 0 && !FindClasses()) { s_noClasses = true; return; } // no retry: same module, same result
                 Status = "indexing players...";
-                var index = new Dictionary<int, long>(400_000);
+                var index = new Dictionary<int, (long, int)>(400_000);
                 var buf = new Span<byte>(s_mem, ChunkSize);
                 var block = new Span<byte>(s_mem + ChunkSize, BlockLength);
                 var hits = new List<int>();
@@ -109,17 +115,22 @@ namespace FM27AbilityNumbers
                         var data = buf.Slice(0, len);
                         if (!Read(chunk, data)) continue;
                         scanned += len;
-                        hits.Clear();
-                        MemoryScan.FindQwords(data, s_personVt, hits);
-                        foreach (int h in hits)
+                        for (int kind = 0; kind < s_class.Length; kind++)
                         {
-                            int at = h + BlockStart;
-                            if (at >= 0 && at + BlockLength <= len)
+                            if (s_personVt[kind] == 0) continue; // not found in this build
+                            int personAt = s_personAt[kind];
+                            hits.Clear();
+                            MemoryScan.FindQwords(data, s_personVt[kind], hits);
+                            foreach (int h in hits)
                             {
-                                if (IsPlayer(data, at, -1)) index[BitConverter.ToInt32(data.Slice(h + IdAt))] = chunk + h;
+                                int at = h - personAt;
+                                if (at >= 0 && h + 0x10 <= len)
+                                {
+                                    if (IsPlayer(data, at, kind, -1)) index[BitConverter.ToInt32(data.Slice(h + IdAt))] = (chunk + h, kind);
+                                }
+                                else if (Read(chunk + at, block.Slice(0, personAt + 0x10)) && IsPlayer(block, 0, kind, -1))
+                                    index[BitConverter.ToInt32(block.Slice(personAt + IdAt))] = (chunk + h, kind); // straddles chunks
                             }
-                            else if (Read(chunk + h + BlockStart, block) && IsPlayer(block, 0, -1))
-                                index[BitConverter.ToInt32(block.Slice(-BlockStart + IdAt))] = chunk + h; // straddles chunks
                         }
                     }
                 }
@@ -151,10 +162,17 @@ namespace FM27AbilityNumbers
                 Plugin.L.LogError(Status);
                 return false;
             }
-            s_playerVt = player;
+            // Optional: without it, the players FM keeps as ACTUAL_PLAYER_AND_NON_PLAYER just show no number.
+            long staffPerson = MemoryScan.FindVtable(secs, mod, s_class[1], s_personAt[1]);
+            long staffPlayer = MemoryScan.FindVtable(secs, mod, s_class[1], 0);
+            if (staffPerson == 0 || staffPlayer == 0)
+                Plugin.L.LogWarning($"{s_class[1]} not found in this build; some players, mostly older ones, show no number.");
+            else { s_playerVt[1] = staffPlayer; s_personVt[1] = staffPerson; }
+            s_playerVt[0] = player;
             s_attrVt = attr;
-            s_personVt = person; // last: TryRead checks this one
-            Plugin.L.LogInfo($"FM classes: person 0x{person - mod:X} player 0x{player - mod:X} attr 0x{attr - mod:X}");
+            s_personVt[0] = person; // last: Build checks this one
+            Plugin.L.LogInfo($"FM classes: person 0x{person - mod:X} player 0x{player - mod:X} attr 0x{attr - mod:X} " +
+                             $"staff-player person 0x{Rva(staffPerson, mod)} player 0x{Rva(staffPlayer, mod)}");
             return true;
         }
 
@@ -200,11 +218,16 @@ namespace FM27AbilityNumbers
         internal static string Describe(int id)
         {
             var index = s_index;
-            if (index == null || !index.TryGetValue(id, out var p)) return $"id {id}: not in index ({Status})";
-            var bytes = new byte[0x40];
-            bool ok = Read(p - 0x40, bytes);
-            return $"id {id}: P=0x{p:X} read={ReadPlayer(p, id, out var ca, out var pa)} ca={ca} pa={pa} " +
-                   $"P-0x40..P: {(ok ? BitConverter.ToString(bytes) : "unreadable")}";
+            if (index == null || !index.TryGetValue(id, out var e)) return $"id {id}: not in index ({Status})";
+            var (p, kind) = e;
+            long b0 = p - s_personAt[kind], mod = (long)GetModuleHandleW("game_plugin.dll");
+            string Q(long at) => ReadI64(at, out var v) ? $"0x{v - mod:X}" : "unreadable";
+            ReadI32(p + IdAt, out var rid);
+            ReadI16(b0 + CaBase + Plugin.S.CaOffset.Value, out var rca);
+            ReadI16(b0 + CaBase + Plugin.S.PaOffset.Value, out var rpa);
+            return $"id {id}: {s_class[kind]} P=0x{p:X} read={ReadPlayer(p, kind, id, out var ca, out var pa)} ca={ca} pa={pa} | " +
+                   $"B {Q(b0)} want 0x{Rva(s_playerVt[kind], mod)}, B+0x148 {Q(b0 + AttrAt)} want 0x{Rva(s_attrVt, mod)}, " +
+                   $"P {Q(p)} want 0x{Rva(s_personVt[kind], mod)}, id {rid}, raw ca {rca} pa {rpa}";
         }
 
         // Debug `find <id>`: objects whose qword at +8 holds this record id (low 24 bits) and whose first qword points
@@ -222,7 +245,7 @@ namespace FM27AbilityNumbers
             if (mod == 0 || !ReadI32(mod + 0x3C, out var peAt) || !ReadI32(mod + peAt + 24 + 56, out var imageSize))
                 return "find: game_plugin.dll not readable";
             var sb = new StringBuilder($"find {id}: {(s_index?.ContainsKey(id) == true ? "in" : "not in")} index, " +
-                                       $"vtables person 0x{s_personVt - mod:X} player 0x{s_playerVt - mod:X} attr 0x{s_attrVt - mod:X}\n");
+                                       $"vtables person 0x{Rva(s_personVt[0], mod)}/0x{Rva(s_personVt[1], mod)} attr 0x{Rva(s_attrVt, mod)}\n");
             var needle = new byte[] { (byte)id, (byte)(id >> 8), (byte)(id >> 16) };
             var buf = (byte*)NativeMemory.Alloc(ChunkSize);
             int hits = 0;
@@ -251,7 +274,7 @@ namespace FM27AbilityNumbers
                             long p = start + off + at - 8;
                             hits++;
                             sb.Append($"  P=0x{p:X} region type 0x{m.Type:X} protect 0x{m.Protect:X} id word 0x{BitConverter.ToInt32(data.Slice(at)):X8} " +
-                                      $"P {ClassName(vt, mod)} | P-0x288 {ClassAt(p + PlayerPart, mod, imageSize)} | P-0x140 {ClassAt(p + AttrPart, mod, imageSize)}\n");
+                                      $"P {ClassName(vt, mod)} | P-0x288 {ClassAt(p - 0x288, mod, imageSize)} | P-0x380 {ClassAt(p - 0x380, mod, imageSize)}\n");
                         }
                     }
                 }
@@ -259,6 +282,8 @@ namespace FM27AbilityNumbers
             finally { NativeMemory.Free(buf); }
             return sb.Append($"  {hits} hits").ToString();
         }
+
+        static string Rva(long va, long mod) => va == 0 ? "-" : (va - mod).ToString("X");
 
         static string ClassAt(long addr, long mod, int imageSize) =>
             ReadI64(addr, out var vt) && vt >= mod && vt < mod + imageSize ? ClassName(vt, mod) : "-";
