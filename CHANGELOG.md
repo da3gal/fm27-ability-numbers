@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1 - 2026-11-10
 
 - Players FM keeps as `db::ACTUAL_PLAYER_AND_NON_PLAYER`, mostly older ones, now get their numbers too. The index missed them before.
 - A CA/PA column now sorts even when some players in it can't be read. FM waits for a value from every row, so those players get 0 and sort last.
